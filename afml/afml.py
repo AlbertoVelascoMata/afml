@@ -200,7 +200,15 @@ class Project:
         return None
     
     def get_job(self, job_name):
-        pass
+        if not job_name: return None
+
+        for job in self.jobs:
+            if job_name == job.name or job_name == job.display_name or job_name == str(job.index):
+                return job
+        return None
+
+
+class JobNotFoundError(LookupError): ...
 
 class AFML:
     '''
@@ -225,22 +233,37 @@ class AFML:
         
         return False
 
+    def run_job(self, job_name):
+        job = self.project.get_job(job_name)
+        if not job:
+            raise JobNotFoundError(job_name)
+        
+        for matrix in self.project.matrix:
+            if len(matrix) > 0:
+                cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
+            
+            failed = job.run(self.project, matrix)
+            if failed:
+                return True
+            print()
+        
+        return False
 
 def main():
     parser = ArgumentParser('AFML')
     parser.add_argument('-p', '--project', dest='project_file', help="Project file", default='project.yml')
     subparsers = parser.add_subparsers(dest='command')
     run_parser = subparsers.add_parser('run', help="Run project jobs")
-    run_parser.add_argument('-j', '--job', help="Job to execute")
+    run_parser.add_argument('-j', '--job', dest='job_name', help="Job to execute")
 
     args, _ = parser.parse_known_args()
     app = AFML(args.project_file)
 
     if args.command == 'run':
-        if not args.job:
+        if not args.job_name:
             app.run()
         else:
-            pass
+            app.run_job(args.job_name)
 
 if __name__ == '__main__':
     main()
