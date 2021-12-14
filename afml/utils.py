@@ -35,7 +35,7 @@ class Utils:
         if not params or len(params) == 0: return {}
         params = params.copy()
         for key in params:
-            params[key] = Utils.format_param(params[key], **key_dict)
+            params[key] = Utils.format_param(params[key], **{**key_dict, **params})
 
         return params
 
