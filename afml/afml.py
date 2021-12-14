@@ -6,15 +6,21 @@ import os
 import yaml
 import pickle
 import subprocess
+from argparse import ArgumentParser
 from termcolor import cprint
 
+from .utils import ParamsFormatter
 from .base import BaseObject
 from .dataset import Dataset
 from .model import Model
+from .matrix import Matrix, MatrixInstance
 from .context import RunContext
 
 class Step(BaseObject):
     index = 0
+
+    def __repr__(self):
+        return f"Step({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, 'script':self.script, **self.params}.items())})"
     
     def __init__(self, script, name=None, params={}):
         super().__init__(name, params)
@@ -41,18 +47,19 @@ class Step(BaseObject):
             script=definition['script'],
             params=definition.get('params', {})
         )
-    
-    def run(self, project, job):
+
+    def run(self, project, job, dataset=None, model=None, formatter=ParamsFormatter()):
         cprint(f"---- {self.display_name} [{self.display_script}] ----", 'blue')
 
         if self.script is None:
             cprint("WARNING: No script provided\n", 'yellow')
             return False
 
+        formatter.update({'step': self})
+        formatter.update(self.params)
+
         afml_context_file = f'.afml/ctx_job{job.index}_step{self.index}.pickle'
-        ctx = RunContext(project, job, self,
-                         dataset=project.get_dataset(job.dataset_name),
-                         model=project.get_model(job.model_name))
+        ctx = RunContext(project, job, self, dataset, model, formatter)
         ctx.dump(afml_context_file)
 
         proc = subprocess.Popen(['python', self.script, '--afml-context', afml_context_file], shell=True, cwd=os.getcwd(), stderr=subprocess.PIPE)
@@ -75,13 +82,17 @@ class Step(BaseObject):
 class Job(BaseObject):
     index = 0
 
-    def __init__(self, steps : List[Step], name : str = None, dataset=None, model=None, params : dict = {}):
+    def __repr__(self):
+        return f"Job({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, **self.params}.items())})"
+
+    def __init__(self, steps : List[Step], name : str = None, dataset=None, model=None, matrix : Matrix = Matrix(), params : dict = {}):
         super().__init__(name, params)
         self.index = Job.index
         Job.index += 1
         self.steps = steps
-        self.dataset_name = dataset
-        self.model_name = model
+        self.dataset_definition = dataset
+        self.model_definition = model
+        self.matrix = matrix
     
     @property
     def display_name(self):
@@ -98,42 +109,78 @@ class Job(BaseObject):
             steps=[Step.parse(step) for step in definition['steps']],
             dataset=definition.get('dataset', None),
             model=definition.get('model', None),
+            matrix = Matrix(**definition.get('matrix', {})),
             params=definition.get('params', {})
         )
     
     def get_step(self, step_name):
         pass
 
-    def run(self, project):
+    def run(self, project, project_matrix=MatrixInstance()):
         cprint(f"==== {self.display_name} ====", 'green')
-        dataset = project.get_dataset(self.dataset_name)
-        model = project.get_model(self.model_name)
 
-        for step in self.steps:
-            failed = step.run(project, self)
-            if failed:
-                return True
-            print()
+        for job_matrix in self.matrix:
+            if len(job_matrix) > 0:
+                cprint(f" {str(job_matrix):-<100}", 'magenta', 'on_white')
+            matrix = project_matrix.merge(job_matrix)
+
+            formatter = ParamsFormatter(matrix=matrix)
+            formatter.update(project.params)
+            formatter.update({'job': self})
+            
+            dataset_definition = formatter.format(self.dataset_definition)
+            if isinstance(dataset_definition, str):
+                dataset = project.get_dataset(dataset_definition)
+            elif isinstance(dataset_definition, dict):
+                dataset = Dataset.parse(dataset_definition)
+            else:
+                dataset = None
+
+            model_definition = formatter.format(self.model_definition)
+            if isinstance(model_definition, str):
+                model = project.get_model(model_definition)
+            elif isinstance(model_definition, dict):
+                model = Model.parse(model_definition)
+            else:
+                model = None
+
+            formatter.update({
+                'dataset': dataset,
+                'model': model
+            })
+            formatter.update(self.params)
+            
+            for step in self.steps:
+                failed = step.run(project, self, dataset, model, formatter.copy())
+                if failed:
+                    return True
+                print()
         
         return False
 
+
 class Project:
-    def __init__(self, datasets : List[Dataset] = [], models : List[Model] = [], jobs : List[Job] = [], params : dict = {}):
+    def __repr__(self):
+        return f"Project({', '.join(f'{k}={repr(v)}' for k, v in self.params.items())})"
+
+    def __init__(self, datasets : List[Dataset] = [], models : List[Model] = [], jobs : List[Job] = [], matrix : Matrix = Matrix(), params : dict = {}):
         self.datasets : List[Dataset] = datasets
         self.models : List[Model] = models
         self.jobs : List[Job] = jobs
-        self.params = params
+        self.matrix : Matrix = matrix
+        self.params : dict = params
 
     @staticmethod
     def load(file):
-        with open("project.yml", 'r') as f:
+        with open(file, 'r') as f:
             definition = yaml.safe_load(f)
 
         return Project(
             datasets = [Dataset.parse(dataset) for dataset in definition.get('datasets', [])],
             models = [Model.parse(model) for model in definition.get('models', [])],
             jobs = [Job.parse(job) for job in definition.get('jobs', [])],
-            params = definition.get('params', {}),
+            matrix = Matrix(**definition.get('matrix', {})),
+            params = definition.get('params', {})
         )
 
     def get_dataset(self, dataset_name):
@@ -159,27 +206,41 @@ class AFML:
     '''
         Handle project execution
     '''
-    def __init__(self):
-        self.project = Project.load("project.yml")
+    def __init__(self, project_file):
+        self.project = Project.load(project_file)
         
         os.makedirs('.afml', exist_ok=True)
         with open('.afml/project.pickle', 'wb') as f:
             pickle.dump(self.project, f)
 
     def run(self):
-        for job in self.project.jobs:
-            failed = job.run(self.project)
-            if failed:
-                return True
-            print()
+        for matrix in self.project.matrix:
+            if len(matrix) > 0:
+                cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
+            for job in self.project.jobs:
+                failed = job.run(self.project, matrix)
+                if failed:
+                    return True
+                print()
         
         return False
 
 
 def main():
-    app = AFML()
-    app.run()
-    exit()
+    parser = ArgumentParser('AFML')
+    parser.add_argument('-p', '--project', dest='project_file', help="Project file", default='project.yml')
+    subparsers = parser.add_subparsers(dest='command')
+    run_parser = subparsers.add_parser('run', help="Run project jobs")
+    run_parser.add_argument('-j', '--job', help="Job to execute")
+
+    args, _ = parser.parse_known_args()
+    app = AFML(args.project_file)
+
+    if args.command == 'run':
+        if not args.job:
+            app.run()
+        else:
+            pass
 
 if __name__ == '__main__':
     main()
