@@ -17,9 +17,9 @@ class Utils:
             #     number: 64
             #     input_size: '{number}'
             # Now params.input_size == 5, instead of params.input_size == '5'
-            formatable_vars =  [var for pre, var, format, _ in Formatter().parse(param) if var is not None and pre == '' and format == '']
-            if len(formatable_vars) == 1:
-                return eval(formatable_vars[0], {**key_dict, 'time': RUN_TIME.strftime("%d-%m-%Y-%H-%M-%S")})
+            formatable_vars = list(Formatter().parse(param))
+            if len(formatable_vars) == 1 and formatable_vars[0][0] == '' and formatable_vars[0][1] is not None and formatable_vars[0][2] == '':
+                return eval(formatable_vars[0][1], {**key_dict, 'time': RUN_TIME.strftime("%d-%m-%Y-%H-%M-%S")})
             
             # Otherwise, format as usual
             else:
