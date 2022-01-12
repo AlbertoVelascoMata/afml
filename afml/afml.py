@@ -66,7 +66,7 @@ class Step(BaseObject):
         while True:
             output = proc.stderr.readline()
             if output:
-                cprint(output.decode('utf-8'), 'yellow', end='')
+                cprint(output.decode('utf-8', errors='replace'), 'yellow', end='')
             
             if proc.poll() is not None:
                 break
