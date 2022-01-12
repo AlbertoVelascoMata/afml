@@ -9,7 +9,8 @@ setup(
     license='MIT',
     install_requires=[
         'pyyaml',
-        'termcolor'
+        'termcolor',
+        'munch'
     ],
     setup_requires=['pytest-runner'],
     tests_require=['pytest==4.4.1'],

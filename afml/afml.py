@@ -131,6 +131,9 @@ class Job(BaseObject):
             dataset_definition = formatter.format(self.dataset_definition)
             if isinstance(dataset_definition, str):
                 dataset = project.get_dataset(dataset_definition)
+                if dataset is None:
+                    cprint(f"ERROR: No dataset found by name '{dataset_definition}'", 'red')
+                    exit(1)
             elif isinstance(dataset_definition, dict):
                 dataset = Dataset.parse(dataset_definition)
             else:
@@ -159,16 +162,16 @@ class Job(BaseObject):
         return False
 
 
-class Project:
+class Project(BaseObject):
     def __repr__(self):
         return f"Project({', '.join(f'{k}={repr(v)}' for k, v in self.params.items())})"
 
     def __init__(self, datasets : List[Dataset] = [], models : List[Model] = [], jobs : List[Job] = [], matrix : Matrix = Matrix(), params : dict = {}):
+        super().__init__(params=params)
         self.datasets : List[Dataset] = datasets
         self.models : List[Model] = models
         self.jobs : List[Job] = jobs
         self.matrix : Matrix = matrix
-        self.params : dict = params
 
     @staticmethod
     def load(file):

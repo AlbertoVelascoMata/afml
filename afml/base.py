@@ -1,8 +1,9 @@
+from munch import munchify
 
 class BaseObject:
     def __init__(self, name=None, params={}):
         self._name = name
-        self._params = params if params else {}
+        self._params = munchify(params if params else {})
 
     @property
     def name(self):
