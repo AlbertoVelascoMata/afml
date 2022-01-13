@@ -257,7 +257,7 @@ def main():
     parser.add_argument('-p', '--project', dest='project_file', help="Project file", default='project.yml')
     subparsers = parser.add_subparsers(dest='command')
     run_parser = subparsers.add_parser('run', help="Run project jobs")
-    run_parser.add_argument('-j', '--job', dest='job_name', help="Job to execute")
+    run_parser.add_argument('-j', '--job', dest='job_name', help="Job to execute", action='append')
 
     args, _ = parser.parse_known_args()
     app = AFML(args.project_file)
@@ -266,7 +266,8 @@ def main():
         if not args.job_name:
             app.run()
         else:
-            app.run_job(args.job_name)
+            for job_name in args.job_name:
+                app.run_job(job_name)
 
 if __name__ == '__main__':
     main()
