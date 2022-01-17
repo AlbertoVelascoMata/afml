@@ -9,7 +9,7 @@ import subprocess
 from argparse import ArgumentParser
 from termcolor import cprint
 
-from .utils import ParamsFormatter
+from .utils import Utils, ParamsFormatter
 from .base import BaseObject
 from .dataset import Dataset
 from .model import Model
@@ -85,7 +85,7 @@ class Job(BaseObject):
     def __repr__(self):
         return f"Job({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, **self.params}.items())})"
 
-    def __init__(self, steps : List[Step], name : str = None, dataset=None, model=None, matrix : Matrix = Matrix(), params : dict = {}):
+    def __init__(self, steps : List[Step], name : str = None, dataset=None, model=None, matrix : Matrix = Matrix(), params : dict = {}, conditions : dict = {}):
         super().__init__(name, params)
         self.index = Job.index
         Job.index += 1
@@ -93,6 +93,7 @@ class Job(BaseObject):
         self.dataset_definition = dataset
         self.model_definition = model
         self.matrix = matrix
+        self.conditions = conditions
     
     @property
     def display_name(self):
@@ -110,11 +111,16 @@ class Job(BaseObject):
             dataset=definition.get('dataset', None),
             model=definition.get('model', None),
             matrix = Matrix(**definition.get('matrix', {})),
-            params=definition.get('params', {})
+            params=definition.get('params', {}),
+            conditions=definition.get('if', {})
         )
     
     def get_step(self, step_name):
         pass
+
+    def check_conditions(self, formatter):
+        return all(Utils.check_condition(condition, formatter.format(expression))
+                   for condition, expression in self.conditions.items())
 
     def run(self, project, project_matrix=MatrixInstance()):
         cprint(f"==== {self.display_name} ====", 'green')
@@ -152,6 +158,10 @@ class Job(BaseObject):
                 'model': model
             })
             formatter.update(self.params)
+
+            if not self.check_conditions(formatter):
+                cprint(f"Skipping job, conditions not met", 'yellow')
+                return False
             
             for step in self.steps:
                 failed = step.run(project, self, dataset, model, formatter.copy())
@@ -225,10 +235,11 @@ class AFML:
             pickle.dump(self.project, f)
 
     def run(self):
-        for matrix in self.project.matrix:
-            if len(matrix) > 0:
-                cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
-            for job in self.project.jobs:
+        for job in self.project.jobs:
+            for matrix in self.project.matrix:
+                if len(matrix) > 0:
+                    cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
+
                 failed = job.run(self.project, matrix)
                 if failed:
                     return True

@@ -4,6 +4,7 @@ from datetime import datetime
 from string import Formatter
 
 from munch import Munch
+from termcolor import cprint
 
 class Time:
     _instance = None
@@ -44,6 +45,17 @@ class Time:
         return Time._instance
 
 class Utils:
+    @staticmethod
+    def check_condition(condition, expression):
+        if condition == 'file':
+            return not os.path.isfile(expression)
+
+        elif condition == 'not_file':
+            return not os.path.isfile(expression)
+        else:
+            cprint(f"WARNING: '{condition}' is not a valid condition", 'yellow')
+            return True
+
     @staticmethod
     def format_param(param, **key_dict):
         if not isinstance(param, str):
