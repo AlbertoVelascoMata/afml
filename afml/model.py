@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 
 from .base import BaseObject
-from .utils import ParamsFormatter
+from .utils.format import ParamsFormatter
 
 class Model(BaseObject):
     def __repr__(self):

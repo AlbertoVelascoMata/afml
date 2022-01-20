@@ -9,7 +9,8 @@ import subprocess
 from argparse import ArgumentParser
 from termcolor import cprint
 
-from .utils import Utils, ParamsFormatter
+from .utils.format import ParamsFormatter
+from .utils.utils import Utils
 from .base import BaseObject
 from .dataset import Dataset
 from .model import Model
@@ -22,11 +23,12 @@ class Step(BaseObject):
     def __repr__(self):
         return f"Step({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, 'script':self.script, **self.params}.items())})"
     
-    def __init__(self, script, name=None, params={}):
+    def __init__(self, script, name=None, params={}, conditions : dict = {}):
         super().__init__(name, params)
         self.index = Step.index
         Step.index += 1
         self.script = script
+        self.conditions = conditions
     
     @property
     def display_name(self):
@@ -45,7 +47,8 @@ class Step(BaseObject):
         return Step(
             name=definition.get('name', None),
             script=definition['script'],
-            params=definition.get('params', {})
+            params=definition.get('params', {}),
+            conditions=definition.get('if', {})
         )
 
     def run(self, project, job, dataset=None, model=None, formatter=ParamsFormatter()):
@@ -58,11 +61,15 @@ class Step(BaseObject):
         formatter.update({'step': self})
         formatter.update(self.params)
 
+        if not Utils.check_conditions(self.conditions, formatter):
+            cprint(f"Skipping job, conditions not met", 'yellow')
+            return False
+
         afml_context_file = f'.afml/ctx_job{job.index}_step{self.index}.pickle'
         ctx = RunContext(project, job, self, dataset, model, formatter)
         ctx.dump(afml_context_file)
 
-        proc = subprocess.Popen(['python', self.script, '--afml-context', afml_context_file], shell=True, cwd=os.getcwd(), stderr=subprocess.PIPE)
+        proc = subprocess.Popen(f'python "{self.script}" --afml-context "{afml_context_file}"', shell=True, cwd=os.getcwd(), stderr=subprocess.PIPE)
         while True:
             output = proc.stderr.readline()
             if output:
@@ -118,10 +125,6 @@ class Job(BaseObject):
     def get_step(self, step_name):
         pass
 
-    def check_conditions(self, formatter):
-        return all(Utils.check_condition(condition, formatter.format(expression))
-                   for condition, expression in self.conditions.items())
-
     def run(self, project, project_matrix=MatrixInstance()):
         cprint(f"==== {self.display_name} ====", 'green')
 
@@ -159,7 +162,7 @@ class Job(BaseObject):
             })
             formatter.update(self.params)
 
-            if not self.check_conditions(formatter):
+            if not Utils.check_conditions(self.conditions, formatter):
                 cprint(f"Skipping job, conditions not met", 'yellow')
                 return False
             

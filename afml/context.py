@@ -2,7 +2,7 @@
 import pickle
 from argparse import ArgumentParser
 
-from .utils import ParamsFormatter
+from .utils.format import ParamsFormatter
 from .dataset import Dataset
 from .model import Model
     

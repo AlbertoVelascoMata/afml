@@ -1,68 +1,17 @@
-import os
-import json
-from datetime import datetime
+
 from string import Formatter
-
 from munch import Munch
-from termcolor import cprint
 
-class Time:
-    _instance = None
+from .time import Time
 
-    def __init__(self):
-        self.last_time = self.run_time = datetime.now()
-
-        run_data_file = '.afml/run_data.json'
-        if os.path.isfile(run_data_file):
-            with open(run_data_file, 'r') as f:
-                run_data = json.load(f)
-            
-            if 'last_time' in run_data:
-                self.last_time = datetime.fromisoformat(run_data['last_time'])
-        
-        with open(run_data_file, 'w') as f:
-            json.dump({
-                'last_time': self.run_time.isoformat()
-            }, f)
-
-    @property
-    def params(self):
-        return {
-            'time': self.run_time.strftime("%d-%m-%Y-%H-%M-%S"),
-            'last_time': self.last_time.strftime("%d-%m-%Y-%H-%M-%S")
-        }
-
-    @staticmethod
-    def get_params():
-        t = Time.get_instance()
-        return t.params
-
-    @staticmethod
-    def get_instance():
-        if Time._instance is None:
-            Time._instance = Time()
-        
-        return Time._instance
-
-class Utils:
-    @staticmethod
-    def check_condition(condition, expression):
-        if condition == 'file':
-            return not os.path.isfile(expression)
-
-        elif condition == 'not_file':
-            return not os.path.isfile(expression)
-        else:
-            cprint(f"WARNING: '{condition}' is not a valid condition", 'yellow')
-            return True
-
+class ParamsFormatter:
     @staticmethod
     def format_param(param, **key_dict):
         if not isinstance(param, str):
             if isinstance(param, list):
-                return [Utils.format_param(item, **key_dict) for item in param]
+                return [ParamsFormatter.format_param(item, **key_dict) for item in param]
             elif isinstance(param, dict):
-                return Utils.format_params(param, **key_dict)
+                return ParamsFormatter.format_params(param, **key_dict)
             else:
                 return param
 
@@ -92,25 +41,23 @@ class Utils:
         if not params or len(params) == 0: return {}
         formatted_params = Munch()
         for key in params:
-            formatted_params[key] = Utils.format_param(params[key], **{**key_dict, **formatted_params})
+            formatted_params[key] = ParamsFormatter.format_param(params[key], **{**key_dict, **formatted_params})
 
         return formatted_params
 
-
-class ParamsFormatter:
     def __init__(self, **params):
         self._params = params
         
     def update(self, params):
         '''Format the new parameters and add them to the formatting dictionary'''
-        self._params.update(**Utils.format_params(params, **self._params))
+        self._params.update(**ParamsFormatter.format_params(params, **self._params))
 
     def format(self, params : 'str | dict'):
         '''Format a string with the current context definition'''
         if isinstance(params, str):
-            return Utils.format_param(params, **self._params)
+            return ParamsFormatter.format_param(params, **self._params)
         elif isinstance(params, dict):
-            return Utils.format_params(params, **self._params)
+            return ParamsFormatter.format_params(params, **self._params)
         else:
             return params
     
