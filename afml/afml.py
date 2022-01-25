@@ -51,6 +51,7 @@ class Step(RunnableObject):
         return Step(
             script=definition['script'],
             name=definition.get('name'),
+            params=definition.get('params') or {},
             dataset=definition.get('dataset'),
             model=definition.get('model'),
             conditions=definition.get('if') or {}
