@@ -10,7 +10,7 @@ class Model(BaseObject):
     def __repr__(self):
         return f"Model({', '.join(f'{k}={repr(v)}' for k, v in {'name':super().name, 'source':f'{self.file}:{self.callable}', **self.params}.items())})"
 
-    def __init__(self, source, name=None, params={}):
+    def __init__(self, source, name : str = None, params : dict = {}):
         super().__init__(name, params)
         self.file, self.callable = source.split(':')
 
@@ -32,9 +32,9 @@ class Model(BaseObject):
             return None
 
         return Model(
-            name=definition.get('name', None),
             source=definition['src'],
-            params=definition.get('params', {})
+            name=definition.get('name'),
+            params=definition.get('params') or {}
         )
 
     def build(self):

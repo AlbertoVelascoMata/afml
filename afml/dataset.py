@@ -1,12 +1,12 @@
-from .base import BaseObject
-
 from pathlib import Path
+
+from .base import BaseObject
 
 class Dataset(BaseObject):
     def __repr__(self):
         return f"Dataset({', '.join(f'{k}={repr(v)}' for k, v in {'name':super().name, 'folder':self._folder, **self.params}.items())})"
 
-    def __init__(self, folder, name : str = None, params={}):
+    def __init__(self, folder, name : str = None, params : dict = {}):
         super().__init__(name, params)
         self._folder = folder
 
@@ -25,7 +25,7 @@ class Dataset(BaseObject):
             return None
         
         return Dataset(
-            name=definition.get('name', None),
             folder=definition['folder'],
-            params=definition.get('params', {})
+            name=definition.get('name'),
+            params=definition.get('params') or {}
         )

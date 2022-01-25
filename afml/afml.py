@@ -12,23 +12,27 @@ from termcolor import cprint
 from .utils.format import ParamsFormatter
 from .utils.utils import Utils
 from .base import BaseObject
+from .runnable import RunnableObject
 from .dataset import Dataset
 from .model import Model
 from .matrix import Matrix, MatrixInstance
 from .context import RunContext
 
-class Step(BaseObject):
+class DatasetNotFoundError(LookupError): ...
+class ModelNotFoundError(LookupError): ...
+class JobNotFoundError(LookupError): ...
+
+class Step(RunnableObject):
     index = 0
 
     def __repr__(self):
         return f"Step({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, 'script':self.script, **self.params}.items())})"
     
-    def __init__(self, script, name=None, params={}, conditions : dict = {}):
-        super().__init__(name, params)
+    def __init__(self, script : str, name : str = None, params : dict = {}, dataset=None, model=None,  conditions : dict = {}):
+        super().__init__(name, params, dataset, model, conditions)
         self.index = Step.index
         Step.index += 1
         self.script = script
-        self.conditions = conditions
     
     @property
     def display_name(self):
@@ -45,10 +49,11 @@ class Step(BaseObject):
             return None
         
         return Step(
-            name=definition.get('name', None),
             script=definition['script'],
-            params=definition.get('params', {}),
-            conditions=definition.get('if', {})
+            name=definition.get('name'),
+            dataset=definition.get('dataset'),
+            model=definition.get('model'),
+            conditions=definition.get('if') or {}
         )
 
     def run(self, project, job, dataset=None, model=None, formatter=ParamsFormatter()):
@@ -59,10 +64,23 @@ class Step(BaseObject):
             return False
 
         formatter.update({'step': self})
+
+        step_dataset = self.get_dataset(project, formatter)
+        if step_dataset is not None:
+            dataset = step_dataset
+        
+        step_model = self.get_model(project, formatter)
+        if step_model is not None:
+            model = step_model
+
+        formatter.update({
+            'dataset': dataset,
+            'model': model
+        })
         formatter.update(self.params)
 
-        if not Utils.check_conditions(self.conditions, formatter):
-            cprint(f"Skipping job, conditions not met", 'yellow')
+        if not self.can_execute(formatter):
+            cprint(f"Skipping step", 'yellow')
             return False
 
         afml_context_file = f'.afml/ctx_job{job.index}_step{self.index}.pickle'
@@ -86,21 +104,18 @@ class Step(BaseObject):
         
         return False
 
-class Job(BaseObject):
+class Job(RunnableObject):
     index = 0
 
     def __repr__(self):
         return f"Job({', '.join(f'{k}={repr(v)}' for k, v in {'name':self.display_name, **self.params}.items())})"
 
-    def __init__(self, steps : List[Step], name : str = None, dataset=None, model=None, matrix : Matrix = Matrix(), params : dict = {}, conditions : dict = {}):
-        super().__init__(name, params)
+    def __init__(self, steps : List[Step], name : str = None, params : dict = {}, dataset=None, model=None,  conditions : dict = {}, matrix : Matrix = Matrix()):
+        super().__init__(name, params, dataset, model, conditions)
         self.index = Job.index
         Job.index += 1
         self.steps = steps
-        self.dataset_definition = dataset
-        self.model_definition = model
         self.matrix = matrix
-        self.conditions = conditions
     
     @property
     def display_name(self):
@@ -113,13 +128,13 @@ class Job(BaseObject):
             return None
 
         return Job(
-            name=definition.get('name', None),
             steps=[Step.parse(step) for step in definition['steps']],
-            dataset=definition.get('dataset', None),
-            model=definition.get('model', None),
-            matrix = Matrix(**definition.get('matrix', {})),
-            params=definition.get('params', {}),
-            conditions=definition.get('if', {})
+            name=definition.get('name'),
+            params=definition.get('params') or {},
+            dataset=definition.get('dataset'),
+            model=definition.get('model'),
+            conditions=definition.get('if') or {},
+            matrix = Matrix(**(definition.get('matrix') or {})),
         )
     
     def get_step(self, step_name):
@@ -137,24 +152,8 @@ class Job(BaseObject):
             formatter.update(project.params)
             formatter.update({'job': self})
             
-            dataset_definition = formatter.format(self.dataset_definition)
-            if isinstance(dataset_definition, str):
-                dataset = project.get_dataset(dataset_definition)
-                if dataset is None:
-                    cprint(f"ERROR: No dataset found by name '{dataset_definition}'", 'red')
-                    exit(1)
-            elif isinstance(dataset_definition, dict):
-                dataset = Dataset.parse(dataset_definition)
-            else:
-                dataset = None
-
-            model_definition = formatter.format(self.model_definition)
-            if isinstance(model_definition, str):
-                model = project.get_model(model_definition)
-            elif isinstance(model_definition, dict):
-                model = Model.parse(model_definition)
-            else:
-                model = None
+            dataset = self.get_dataset(project, formatter)
+            model = self.get_model(project, formatter)
 
             formatter.update({
                 'dataset': dataset,
@@ -162,8 +161,8 @@ class Job(BaseObject):
             })
             formatter.update(self.params)
 
-            if not Utils.check_conditions(self.conditions, formatter):
-                cprint(f"Skipping job, conditions not met", 'yellow')
+            if not self.can_execute(formatter):
+                cprint(f"Skipping job", 'yellow')
                 return False
             
             for step in self.steps:
@@ -200,31 +199,35 @@ class Project(BaseObject):
         )
 
     def get_dataset(self, dataset_name):
-        if not dataset_name: return None
+        if not dataset_name:
+            raise ValueError(f"No dataset name provided")
 
         for dataset in self.datasets:
             if dataset_name == dataset.name:
                 return dataset
-        return None
+        
+        raise DatasetNotFoundError(dataset_name)
 
     def get_model(self, model_name):
-        if not model_name: return None
+        if not model_name:
+            raise ValueError(f"No model name provided")
 
         for model in self.models:
             if model_name == model.name:
                 return model
-        return None
+        
+        raise ModelNotFoundError(model_name)
     
     def get_job(self, job_name):
-        if not job_name: return None
+        if not job_name:
+            raise ValueError(f"No job name provided")
 
         for job in self.jobs:
             if job_name == job.name or job_name == job.display_name or job_name == str(job.index):
                 return job
-        return None
 
+        raise JobNotFoundError(job_name)
 
-class JobNotFoundError(LookupError): ...
 
 class AFML:
     '''
@@ -251,8 +254,6 @@ class AFML:
 
     def run_job(self, job_name):
         job = self.project.get_job(job_name)
-        if not job:
-            raise JobNotFoundError(job_name)
         
         for matrix in self.project.matrix:
             if len(matrix) > 0:
