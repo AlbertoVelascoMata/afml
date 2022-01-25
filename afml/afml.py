@@ -238,11 +238,10 @@ class AFML:
             pickle.dump(self.project, f)
 
     def run(self):
-        for job in self.project.jobs:
-            for matrix in self.project.matrix:
-                if len(matrix) > 0:
-                    cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
-
+        for matrix in self.project.matrix:
+            if len(matrix) > 0:
+                cprint(f" {str(matrix):-<100}", 'white', 'on_magenta')
+            for job in self.project.jobs:
                 failed = job.run(self.project, matrix)
                 if failed:
                     return True
