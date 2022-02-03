@@ -13,6 +13,7 @@ class Model(BaseObject):
     def __init__(self, source, name : str = None, params : dict = {}):
         super().__init__(name, params)
         self.file, self.callable = source.split(':')
+        self._module = None
 
     @property
     def name(self):
@@ -36,12 +37,17 @@ class Model(BaseObject):
             name=definition.get('name'),
             params=definition.get('params') or {}
         )
+    
+    @property
+    def module(self):
+        if not self._module:
+            spec = importlib.util.spec_from_file_location(self.name, self.file)
+            self._module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self._module)
+        return self._module
 
-    def build(self):
-        spec = importlib.util.spec_from_file_location(self.name, self.file)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    def build(self, **kwargs):
+        callable = getattr(self.module, self.callable)
 
-        callable = getattr(module, self.callable)
-
-        return callable(**self._params)
+        params = {**self._params, **kwargs}
+        return callable(**params)
