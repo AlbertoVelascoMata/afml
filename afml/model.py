@@ -1,4 +1,4 @@
-
+import sys
 import importlib
 import importlib.util
 from pathlib import Path
@@ -12,7 +12,7 @@ class Model(BaseObject):
 
     def __init__(self, source, name : str = None, params : dict = {}):
         super().__init__(name, params)
-        self.file, self.callable = source.split(':')
+        self.file, self.callable_name = source.split(':')
         self._module = None
 
     @property
@@ -22,7 +22,7 @@ class Model(BaseObject):
     def get_formatted(self, formatter : ParamsFormatter):
         return Model(
             name=super().name,
-            source=f'{self.file}:{self.callable}',
+            source=f'{self.file}:{self.callable_name}',
             params=formatter.format(self.params)
         )
 
@@ -46,8 +46,10 @@ class Model(BaseObject):
             spec.loader.exec_module(self._module)
         return self._module
 
-    def build(self, **kwargs):
-        callable = getattr(self.module, self.callable)
+    @property
+    def callable(self):
+        return getattr(self.module, self.callable_name)
 
+    def build(self, **kwargs):
         params = {**self._params, **kwargs}
-        return callable(**params)
+        return self.callable(**params)
