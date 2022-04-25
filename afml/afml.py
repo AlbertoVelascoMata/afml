@@ -9,7 +9,7 @@ import subprocess
 from argparse import ArgumentParser
 from termcolor import cprint
 
-from afml.utils.format import ParamsFormatter
+from .utils.format import ParamsFormatter
 from .base import BaseObject
 from .runnable import RunnableObject
 from .dataset import Dataset
