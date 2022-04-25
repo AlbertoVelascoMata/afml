@@ -4,8 +4,8 @@ from termcolor import cprint
 from .base import BaseObject
 from .dataset import Dataset
 from .model import Model
-from .utils.format import ParamsFormatter
-from .utils.utils import Utils
+from afml.utils.format import ParamsFormatter
+from afml.utils.utils import Utils
 
 class RunnableObject(BaseObject):
     def __init__(self, name : str = None, params : dict = {}, dataset : Union[Dataset, str, None] = None, model : Union[Model, str, None] = None, conditions : dict = {}):
