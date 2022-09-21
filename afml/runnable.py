@@ -1,5 +1,4 @@
 from typing import Union
-from termcolor import cprint
 
 from .base import BaseObject
 from .dataset import Dataset
