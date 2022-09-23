@@ -24,8 +24,8 @@ class Time:
     @property
     def params(self):
         return {
-            'time': self.run_time.strftime("%d-%m-%Y-%H-%M-%S"),
-            'last_time': self.last_time.strftime("%d-%m-%Y-%H-%M-%S")
+            'time': self.run_time.strftime("%Y-%m-%d-%H-%M-%S"),
+            'last_time': self.last_time.strftime("%Y-%m-%d-%H-%M-%S")
         }
 
     @staticmethod
