@@ -25,11 +25,11 @@ class ParamsFormatter:
             # Now params.input_size == 5, instead of params.input_size == '5'
             formatable_vars = list(Formatter().parse(param))
             if len(formatable_vars) == 1 and formatable_vars[0][0] == '' and formatable_vars[0][1] is not None and formatable_vars[0][2] == '':
-                return eval(formatable_vars[0][1], {**key_dict, **Time.get_params()})
+                return eval(formatable_vars[0][1], {**Time.get_params(), **key_dict})
             
             # Otherwise, format as usual
             else:
-                return param.format(**key_dict, **Time.get_params())
+                return param.format(**{**Time.get_params(), **key_dict})
     
         except KeyError as e:
             raise KeyError(f"'{e.args[0]}' not found when formatting '{param}'")
