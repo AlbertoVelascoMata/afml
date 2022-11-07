@@ -31,6 +31,8 @@ class ParamsFormatter:
             else:
                 return param.format(**{**Time.get_params(), **key_dict})
     
+        except ValueError as e:
+            raise ValueError(f"An error ocurred when trying to format '{param}': {e.args[0]}")
         except KeyError as e:
             raise KeyError(f"'{e.args[0]}' not found when formatting '{param}'")
         except AttributeError as e:
