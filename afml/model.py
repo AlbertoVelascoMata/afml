@@ -1,4 +1,3 @@
-import sys
 import importlib
 import importlib.util
 from pathlib import Path
@@ -6,9 +5,18 @@ from pathlib import Path
 from .base import BaseObject
 from .utils.format import ParamsFormatter
 
+
 class Model(BaseObject):
     def __repr__(self):
-        return f"Model({', '.join(f'{k}={repr(v)}' for k, v in {'name':super().name, 'source':f'{self.file}:{self.callable}', **self.params}.items())})"
+        args = ', '.join(
+            f'{k}={repr(v)}'
+            for k, v in {
+                'name': super().name,
+                'source': f'{self.file}:{self.callable}',
+                **self.params
+            }.items()
+        )
+        return f"Model({args})"
 
     def __init__(self, source, name : str = None, params : dict = {}):
         super().__init__(name, params)
@@ -37,7 +45,7 @@ class Model(BaseObject):
             name=definition.get('name'),
             params=definition.get('params') or {}
         )
-    
+
     @property
     def module(self):
         if not self._module:

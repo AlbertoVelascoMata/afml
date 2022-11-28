@@ -10,13 +10,13 @@ class Time:
 
         run_data_file = '.afml/run_data.json'
         if os.path.isfile(run_data_file):
-            with open(run_data_file, 'r') as f:
+            with open(run_data_file, 'r', encoding='utf-8') as f:
                 run_data = json.load(f)
-            
+
             if 'last_time' in run_data:
                 self.last_time = datetime.fromisoformat(run_data['last_time'])
-        
-        with open(run_data_file, 'w') as f:
+
+        with open(run_data_file, 'w', encoding='utf-8') as f:
             json.dump({
                 'last_time': self.run_time.isoformat()
             }, f)
@@ -30,12 +30,11 @@ class Time:
 
     @staticmethod
     def get_params():
-        t = Time.get_instance()
-        return t.params
+        return Time.get_instance().params
 
     @staticmethod
     def get_instance():
         if Time._instance is None:
             Time._instance = Time()
-        
+
         return Time._instance

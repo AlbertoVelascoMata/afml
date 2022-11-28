@@ -9,12 +9,12 @@ class Utils:
         if condition == 'file':
             return os.path.isfile(expression)
 
-        elif condition == 'not_file':
+        if condition == 'not_file':
             return not os.path.isfile(expression)
-        else:
-            cprint(f"WARNING: '{condition}' is not a valid condition", 'yellow')
-            return True
-    
+
+        cprint(f"WARNING: '{condition}' is not a valid condition", 'yellow')
+        return True
+
     @staticmethod
     def check_conditions(conditions, formatter=ParamsFormatter()):
         return all(Utils.check_condition(condition, formatter.format(expression))

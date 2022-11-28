@@ -7,7 +7,7 @@ from munch import Munch, munchify
 from .utils.format import ParamsFormatter
 from .dataset import Dataset
 from .model import Model
-    
+
 
 class RunContext:
     def __init__(self, project, job, step, dataset=None, model=None, formatter=ParamsFormatter()):
@@ -29,13 +29,13 @@ class RunContext:
         return self._params
 
     def dump(self, file):
-        with open(file, 'wb') as f:
-            pickle.dump(self, f)
+        with open(file, 'wb') as serialized_file:
+            pickle.dump(self, serialized_file)
 
     @staticmethod
     def load(file) -> 'RunContext':
-        with open(file, 'rb') as f:
-            return pickle.load(f)
+        with open(file, 'rb') as serialized_file:
+            return pickle.load(serialized_file)
 
     @staticmethod
     def get_current() -> 'RunContext':
