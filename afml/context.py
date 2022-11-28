@@ -1,6 +1,7 @@
 
 import pickle
 from argparse import ArgumentParser
+from pathlib import Path
 
 from munch import Munch, munchify
 
@@ -39,11 +40,14 @@ class RunContext:
 
     @staticmethod
     def get_current() -> 'RunContext':
-        parser = ArgumentParser()
-        parser.add_argument('--afml-context', dest='afml_context_file')
-        args, _ = parser.parse_known_args()
+        parser = ArgumentParser(add_help=False)
+        parser.add_argument('--afml-context', type=Path, dest='afml_context_file')
+        try:
+            args, _ = parser.parse_known_args()
+        except SystemExit:
+            return None
 
-        if not args.afml_context_file:
+        if not args.afml_context_file or not args.afml_context_file.is_file():
             return None
 
         return RunContext.load(args.afml_context_file)
