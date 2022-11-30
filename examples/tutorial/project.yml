@@ -16,7 +16,7 @@ params:
 datasets:
   - name: Example1
     folder: data/example-dataset-1
-  
+
   - name: Example2
     folder: data/example-dataset-2
 
@@ -64,6 +64,34 @@ jobs:
         dataset: Example2
         script: src/dummy.py
 
+  - name: Example with multiple executors
+    steps:
+      - name: Python script
+        script: src/dummy.py
+        # Also allowed:
+        #   python: src/dummy.py
+      
+      - name: Python module
+        python-module: src.dummy
+        # Also allowed:
+        #   mode: python-module
+        #   python: src.dummy
+      
+      - name: Python with custom interpreter
+        python: src/dummy.py
+        python-interpreter: python3
+      
+      - name: Generic shell command
+        shell: echo Hello
+        # Also allowed:
+        #   mode: shell
+        #   command: echo Hello
+      
+      - name: Generic shell command with custom args
+        params:
+          name: Alice
+        command: echo Hello
+        shell-args: "I'm {name}"
 
   - name: Example job with matrix execution
     # Matrix allows running different job configurations
