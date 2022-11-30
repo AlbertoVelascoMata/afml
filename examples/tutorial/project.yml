@@ -1,0 +1,131 @@
+---
+version: 0.1
+# A global matrix will execute the whole project multiple times with different configurations
+#matrix:
+#  input_size: [64, 128]
+
+params:
+  integer_param: 1
+  list_param: [foo, bar]
+  dict_param:
+    foo: bar
+  formatted_param: 'number-{integer_param}'
+
+
+# Datasets and models can be defined globally
+datasets:
+  - name: Example1
+    folder: data/example-dataset-1
+
+  - name: Example2
+    folder: data/example-dataset-2
+
+models:
+  - name: ExampleModel
+    src: src/models/model.py:build
+    params:
+      input_size: 224 #'{matrix.input_size}'
+      other_param: 'extra params'
+
+
+jobs:
+  - #name: Example job
+    # Job name not required
+
+    ## DATASET
+    # It can be defined locally in a job
+    dataset:
+      folder: data/example-dataset-1
+    # Or using a name reference
+    #dataset: Example1
+
+    ## MODEL
+    # It can be defined locally
+    model:
+      src: src/models/model.py:build
+      params:
+        input_size: 16
+    # Or using a name reference
+    #model: ExampleModel
+
+    steps:
+      - #name: Example step
+        # Step name not required
+        script: src/dummy.py
+      
+      - name: Step with local definitions
+        # Datasets can be defined per step too
+        dataset:
+          folder: ../data/example-dataset-2
+        script: src/dummy.py
+
+      - name: Step with custom dataset by reference
+        # Or using a name reference:
+        dataset: Example2
+        script: src/dummy.py
+
+  - name: Example with multiple executors
+    steps:
+      - name: Python script
+        script: src/dummy.py
+        # Also allowed:
+        #   python: src/dummy.py
+      
+      - name: Python module
+        python-module: src.dummy
+        # Also allowed:
+        #   mode: python-module
+        #   python: src.dummy
+      
+      - name: Python with custom interpreter
+        python: src/dummy.py
+        python-interpreter: python3
+      
+      - name: Generic shell command
+        shell: echo Hello
+        # Also allowed:
+        #   mode: shell
+        #   command: echo Hello
+      
+      - name: Generic shell command with custom args
+        params:
+          name: Alice
+        command: echo Hello
+        shell-args: "I'm {name}"
+
+  - name: Example job with matrix execution
+    # Matrix allows running different job configurations
+    matrix:
+      # Maybe train multiple times to compare overall results
+      run: [1, 2]
+      
+      # Train using multiple datasets
+      dataset:
+        - Example1
+      #  - folder: ./data/example-dataset-2
+      # Or even using different models
+      model:
+        - ExampleModel
+      #  - src: src/models/model.py:build
+      #    params:
+      #      input_size: 16
+      
+      # Define specific configurations for multiple parameters
+      cfg:
+        - var1: 1
+          var2: ABC
+
+        - var1: 9
+          var2: XYZ
+  
+    dataset: '{matrix.dataset}'
+    model: '{matrix.model}'
+    params:
+      folder: 'out/{model.name}_{dataset.name}_{time}_{matrix.run}'
+      var1: '{matrix.cfg.var1}'
+      var2: '{matrix.cfg.var2}'
+    steps:
+      - name: Train
+        script: src/progress.py
+        params:
+          epochs: 10
