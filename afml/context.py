@@ -12,6 +12,7 @@ from .model import Model
 
 class RunContext:
     def __init__(self, project, job, step, dataset=None, model=None, formatter=ParamsFormatter()):
+        self.id = f"CTX-J{job.index}-S{step.index}"
         self._params = None
         self.project_params = formatter.format(project.params)
         self.job_params = formatter.format(job.params)

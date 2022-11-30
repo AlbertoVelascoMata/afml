@@ -3,7 +3,6 @@
 """
 import os
 import pickle
-import subprocess
 from argparse import ArgumentParser
 from typing import List
 
@@ -13,6 +12,7 @@ from termcolor import cprint
 from .base import BaseObject
 from .context import RunContext
 from .dataset import Dataset
+from .executor import Executor, get_executor
 from .matrix import Matrix, MatrixInstance
 from .model import Model
 from .runnable import RunnableObject
@@ -31,7 +31,7 @@ class Step(RunnableObject):
             f'{k}={repr(v)}'
             for k, v in {
                 'name': self.display_name,
-                'script': self.script,
+                'executor': self.executor,
                 **self.params
             }.items()
         )
@@ -39,7 +39,7 @@ class Step(RunnableObject):
 
     def __init__(
         self,
-        script: str,
+        executor: Executor,
         name: str = None,
         params: dict = None,
         dataset: Dataset = None,
@@ -49,24 +49,16 @@ class Step(RunnableObject):
         super().__init__(name, params, dataset, model, conditions)
         self.index = Step.index
         Step.index += 1
-        self.script = script
+        self.executor = executor
 
     @property
     def display_name(self):
         return self.name if self.name else f"Step {self.index+1}"
 
-    @property
-    def display_script(self):
-        return self.script if self.script else "<empty>"
-
     @staticmethod
     def parse(definition):
-        if 'script' not in definition:
-            #raise Error
-            return None
-
         return Step(
-            script=definition['script'],
+            executor=get_executor(definition),
             name=definition.get('name'),
             params=definition.get('params') or {},
             dataset=definition.get('dataset'),
@@ -82,11 +74,7 @@ class Step(RunnableObject):
         model: Model = None,
         formatter=ParamsFormatter()
     ):
-        cprint(f"---- {self.display_name} [{self.display_script}] ----", 'blue')
-
-        if self.script is None:
-            cprint("WARNING: No script provided\n", 'yellow')
-            return False
+        cprint(f"---- {self.display_name} [{self.executor}] ----", 'blue')
 
         formatter.update({'step': self})
 
@@ -108,31 +96,12 @@ class Step(RunnableObject):
             cprint("Skipping step", 'yellow')
             return False
 
-        afml_context_file = f".afml/ctx_job{job.index}_step{self.index}.pickle"
         ctx = RunContext(project, job, self, dataset, model, formatter)
-        ctx.dump(afml_context_file)
-
-        with subprocess.Popen(
-            f'python "{self.script}" --afml-context "{afml_context_file}"',
-            shell=True,
-            cwd=os.getcwd(),
-            stderr=subprocess.PIPE,
-        ) as proc:
-            while True:
-                output = proc.stderr.readline()
-                if output:
-                    cprint(output.decode('utf-8', errors='replace'), 'yellow', end='')
-
-                if proc.poll() is not None:
-                    break
-
-            os.remove(afml_context_file)
-
-            if proc.poll() != 0:
-                cprint("ERROR: Step execution failed!", 'red')
-                return True
-
-        return False
+        process = self.executor.start(ctx, formatter)
+        for stderr in process:
+            cprint(stderr, 'yellow', end='')
+        if process.exit_code != 0:
+            cprint("ERROR: Step execution failed!", 'red')
 
 class Job(RunnableObject):
     index = 0
