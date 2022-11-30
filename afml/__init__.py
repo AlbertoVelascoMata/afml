@@ -1,1 +1,1 @@
-from .afml import AFML as AFML
+from .afml import AFML

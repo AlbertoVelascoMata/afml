@@ -5,4 +5,4 @@ import sys
 import time
 
 for i in tqdm(range(10), desc='Progress', file=sys.stdout):
-    time.sleep(1)
+    time.sleep(0.1)
