@@ -70,6 +70,7 @@ class Executor(ABC):
         args = ', '.join(
             f'{k}={repr(v)}'
             for k, v in self.__dict__.items()
+            if k != '_formatable_vars'
         )
         return f"{self.__class__.__name__}({args})"
 
